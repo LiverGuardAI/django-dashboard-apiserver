@@ -28,7 +28,16 @@ SECRET_KEY = "django-insecure-zjzc-bqw$3*pu!aeplx#li*l10hnpaciafny95i(c0zft)#--%
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+import os
+from django.core.exceptions import ImproperlyConfigured
+
+def get_env_list(var_name, default=None):
+    value = os.getenv(var_name)
+    if value:
+        return [v.strip() for v in value.split(',')]
+    return default or []
+
+ALLOWED_HOSTS = get_env_list("ALLOWED_HOSTS", ["localhost", "127.0.0.1"])
 
 
 # Application definition
