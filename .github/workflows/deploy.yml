@@ -20,6 +20,6 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           cd DjangoProject
-          git pull origin main
+          git pull https://github.com/LiverGuardAI/DjangoProject.git main
           docker compose down
           docker compose up -d --build
