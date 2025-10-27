@@ -19,7 +19,7 @@ jobs:
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          cd DjangoProject/djangoProject
+          cd Django-apiserver/djangoProject
           git pull git@github.com:LiverGuardAI/Django-apiserver.git main
           docker compose down
           docker compose up -d --build
