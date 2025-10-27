@@ -22,5 +22,5 @@ from .views import index
 urlpatterns = [
     path("admin/", admin.site.urls),    
     path('', index, name='index'),
-    path('api', include('liverguard.urls')),
+    path('api/', include('liverguard.urls')),
 ]
