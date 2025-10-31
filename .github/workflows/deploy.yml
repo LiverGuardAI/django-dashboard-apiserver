@@ -1,4 +1,4 @@
-name: GCP Deploy
+name: React-Project Deploy
 
 on:
   push:
@@ -19,9 +19,10 @@ jobs:
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          cd Django-apiserver/djangoproject
-          git pull git@github.com:LiverGuardAI/Django-apiserver.git main
+          cd React-project
+          git pull git@github.com:LiverGuardAI/React-project.git main
           docker compose down
           docker compose up -d --build
           docker ps -a
-          docker logs django_web || true
+          docker logs react_project_backend || true
+          docker logs react_project_frontend || true
