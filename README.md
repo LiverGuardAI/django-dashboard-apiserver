@@ -41,3 +41,7 @@ python manage.py runserver
 ## API Endpoints
 - Admin: http://localhost:8000/admin/
 - API: http://localhost:8000/api/
+
+## LIBRARY
+- requirements.txt
+- 터미널에 pip install -r requirements.txt 입력 
