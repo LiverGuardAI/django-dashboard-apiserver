@@ -2,6 +2,9 @@
 # Style mimics the sample: rounded gradient bar with soft shadow and a black value bubble with a small pointer.
 # Supports both normal direction (higher = more dangerous) and reverse direction (lower = more dangerous).
 
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend for server-side rendering
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
@@ -163,7 +166,7 @@ def generate_risk_bar(indicator, value):
         bubble_text = f"{int(display_value):,} {unit}".strip()
     else:
         bubble_text = f"{display_value:.1f} {unit}".strip()
-    draw_value_bubble(ax, px, bar_y + bar_h + 14, bubble_text, fontsize=14)
+    draw_value_bubble(ax, px, bar_y + bar_h + 20, bubble_text, fontsize=14)
     
     # Optional ticks for ranges
     for (a, b), lab in zip(ranges, labels):
@@ -173,9 +176,9 @@ def generate_risk_bar(indicator, value):
     
     # Convert to base64
     buf = io.BytesIO()
-    plt.savefig(buf, format='png', bbox_inches='tight', dpi=100, transparent=True)
+    plt.savefig(buf, format='png', bbox_inches='tight', dpi=150, transparent=True)
     buf.seek(0)
     img_base64 = base64.b64encode(buf.read()).decode('utf-8')
     plt.close(fig)
-    
+
     return img_base64
