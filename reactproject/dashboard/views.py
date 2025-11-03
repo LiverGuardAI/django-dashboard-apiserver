@@ -5,12 +5,24 @@ from rest_framework import generics
 from .models import DbrPatients, DbrBloodResults, DbrAppointments, DbrBloodTestReferences, Announcements
 from .serializers import (
     PatientSerializer, BloodResultSerializer, AppointmentSerializer,
-    BloodTestReferenceSerializer, AnnouncementSerializer
+    BloodTestReferenceSerializer, AnnouncementSerializer, DbrPatientRegisterSerializer
 )
 from rest_framework import status
 from django.contrib.auth import authenticate, login
 from rest_framework.decorators import api_view
 from django.contrib.auth.hashers import check_password
+
+
+# Auth view
+class DbrPatientRegisterView(APIView):
+    def post(self, request):
+        serializer = DbrPatientRegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "회원가입이 완료되었습니다."}, status=status.HTTP_201_CREATED)
+        else:
+            print("❌ Serializer errors:", serializer.errors)  # 🔥 여기에 실제 원인 표시
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ==================== 환자 관련 Views ====================
@@ -99,3 +111,5 @@ class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Announcements.objects.all()
     serializer_class = AnnouncementSerializer
     lookup_field = 'announcements_id'
+
+

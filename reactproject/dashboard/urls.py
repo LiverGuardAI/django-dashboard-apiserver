@@ -9,10 +9,13 @@ from .views import (
     # 혈액검사 기준
     BloodTestReferenceListView, BloodTestReferenceDetailView,
     # 공지사항
-    AnnouncementListView, AnnouncementDetailView,
+    AnnouncementListView, AnnouncementDetailView, DbrPatientRegisterView,
 )
 
 urlpatterns = [
+    # Auth view
+    path("auth/register/", DbrPatientRegisterView.as_view(), name="patient-register"),
+    
     # ==================== 환자 ====================
     path('patients/', PatientListView.as_view(), name='patient-list'),
     path('patients/<uuid:patient_id>/', PatientDetailView.as_view(), name='patient-detail'),
