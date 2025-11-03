@@ -245,6 +245,8 @@ class BloodResultListView(generics.ListCreateAPIView):
     """혈액검사 결과 목록 조회 및 생성"""
     queryset = DbrBloodResults.objects.all().select_related('patient')
     serializer_class = BloodResultSerializer
+    authentication_classes = [PatientJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(tags=["Blood Results"], operation_summary="혈액검사 결과 목록 조회")
     def get(self, request, *args, **kwargs):
@@ -260,6 +262,8 @@ class BloodResultDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = DbrBloodResults.objects.all().select_related('patient')
     serializer_class = BloodResultSerializer
     lookup_field = 'blood_result_id'
+    authentication_classes = [PatientJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(tags=["Blood Results"], operation_summary="혈액검사 결과 상세 조회")
     def get(self, request, *args, **kwargs):
@@ -281,6 +285,8 @@ class BloodResultDetailView(generics.RetrieveUpdateDestroyAPIView):
 class PatientBloodResultsView(generics.ListAPIView):
     """특정 환자의 혈액검사 결과 목록 조회"""
     serializer_class = BloodResultSerializer
+    authentication_classes = [PatientJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(tags=["Blood Results"], operation_summary="특정 환자의 혈액검사 결과 목록 조회")
     def get(self, request, *args, **kwargs):
