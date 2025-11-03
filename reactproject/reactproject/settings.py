@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     'rest_framework',
     "rest_framework_simplejwt",
+    # "rest_framework_simplejwt.token_blacklist",
     "dashboard",
     'corsheaders',
     "django_extensions",
@@ -75,6 +76,8 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "patient_id",
     "USER_ID_CLAIM": "patient_id",  
+    "BLACKLIST_AFTER_ROTATION": False,
+    "ROTATE_REFRESH_TOKENS": False,   
 }
 
 MIDDLEWARE = [

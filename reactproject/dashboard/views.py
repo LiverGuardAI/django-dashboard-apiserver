@@ -14,7 +14,7 @@ from django.contrib.auth import authenticate, login
 from rest_framework.decorators import api_view
 from django.contrib.auth.hashers import check_password
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
 # Auth view
 # sign up view
@@ -30,7 +30,7 @@ class DbrPatientRegisterView(APIView):
 
 # login view
 class DbrPatientLoginView(APIView):
-    permission_classes = [AllowAny] 
+    permission_classes = [AllowAny]
     authentication_classes = []
     
     def post(self, request):
@@ -40,6 +40,38 @@ class DbrPatientLoginView(APIView):
         print("❌ Login Serializer errors:", serializer.errors)  # 🔥 여기에 실제 원인 표시
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# logout view
+class DbrPatientLogoutView(APIView):
+    """
+    JWT 로그아웃 (Refresh Token 무효화)
+    """
+    authentication_classes = [PatientJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            refresh_token = request.data.get("refresh")
+
+            if not refresh_token:
+                return Response(
+                    {"error": "refresh token이 필요합니다."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            token = RefreshToken(refresh_token)
+            # token.blacklist()  # ✅ 블랙리스트에 등록 (재사용 불가)
+
+            return Response(
+                {"message": "로그아웃되었습니다."},
+                status=status.HTTP_205_RESET_CONTENT
+            )
+
+        except TokenError:
+            return Response(
+                {"error": "유효하지 않은 refresh token입니다."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
 # 🔹 현재 로그인된 사용자 조회 (auth/user)
 class DbrPatientUserView(APIView):
     authentication_classes = [PatientJWTAuthentication]  # ✅ 커스텀 인증

@@ -10,7 +10,7 @@ from .views import (
     BloodTestReferenceListView, BloodTestReferenceDetailView,
     # 공지사항
     AnnouncementListView, AnnouncementDetailView, 
-    DbrPatientRegisterView, DbrPatientLoginView, DbrPatientUserView,
+    DbrPatientRegisterView, DbrPatientLoginView, DbrPatientUserView, DbrPatientLogoutView,
 )
 
 urlpatterns = [
@@ -18,6 +18,7 @@ urlpatterns = [
     path("auth/register/", DbrPatientRegisterView.as_view(), name="patient-register"),
     path("auth/login/", DbrPatientLoginView.as_view(), name="patient-login"),
     path("auth/user/", DbrPatientUserView.as_view(), name="patient-user"),
+    path("auth/logout/", DbrPatientLogoutView.as_view(), name="patient-logout"),
     
     # ==================== 환자 ====================
     path('patients/', PatientListView.as_view(), name='patient-list'),
