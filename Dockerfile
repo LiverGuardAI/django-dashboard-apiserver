@@ -1,22 +1,21 @@
-# --- Base Image (Python + Linux)
+# React-project/Dockerfile
 FROM python:3.11-slim
 
-# --- Work Directory
 WORKDIR /app
 
-# --- Install Python Dependencies
-COPY requirements.txt .
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+# 시스템 필수 패키지 설치 (mysqlclient 등 빌드 의존성 대비)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libmariadb-dev-compat \
+    libmariadb-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# --- Copy Django Project
+# 의존성 설치
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 프로젝트 복사
 COPY . .
 
-# --- PyMySQL 활성화 (settings.py에서 필요)
-# CMD에서 자동 주입할 수도 있지만, 보통 settings.py에 아래 2줄 추가:
-# import pymysql
-# pymysql.install_as_MySQLdb()
-
-# --- Run Django Dev Server
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
-
+# collectstatic은 필요 시 docker-compose 단계에서 실행
+CMD ["gunicorn", "reactproject.wsgi:application", "--bind", "0.0.0.0:8000"]
