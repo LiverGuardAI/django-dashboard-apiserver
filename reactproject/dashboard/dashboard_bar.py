@@ -43,13 +43,14 @@ INDICATORS = {
     },
     'platelet': {
         'title': 'Platelet',
-        'unit': '/µL',
+        'unit': '×10⁴ /µL',
         'vmin': 50,
         'vmax': 450,
         'ranges': [(50, 75), (75, 150), (150, 450)],
         'labels': ['<75K', '75K-150K', '150K-450K'],
         'reverse': True,  # Lower = more dangerous (red on LEFT)
-        'display_multiplier': 1000  # DB stores divided by 1000, display as full value
+        'display_multiplier': 1000,  # DB stores divided by 1000, display as full value
+        'display_divisor': 10000  # Divide by 10000 for display
     }
 }
 
@@ -161,13 +162,17 @@ def generate_risk_bar(indicator, value):
     t = (v - vmin) / (vmax - vmin + 1e-9)
     px = bar_x + t * bar_w
     
-    # Value bubble (display formatted value)
+    # Value bubble (display formatted value WITHOUT unit)
     if indicator == 'platelet':
-        bubble_text = f"{int(display_value):,} {unit}".strip()
+        # Divide by 10000 and show 2 decimal places
+        bubble_text = f"{display_value / 10000:.2f}"
     else:
-        bubble_text = f"{display_value:.1f} {unit}".strip()
+        bubble_text = f"{display_value:.1f}"
     draw_value_bubble(ax, px, bar_y + bar_h + 20, bubble_text, fontsize=14)
-    
+
+    # Unit label in bottom right corner
+    ax.text(bar_x + bar_w, bar_y - 25, f"{unit}", fontsize=9, ha="right", va="top", color="#666666")
+
     # Optional ticks for ranges
     for (a, b), lab in zip(ranges, labels):
         ta = (a - vmin) / (vmax - vmin); tb = (b - vmin) / (vmax - vmin)
