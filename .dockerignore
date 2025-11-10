@@ -1,0 +1,8 @@
+# Django .dockerignore
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.db
+/media
+/staticfiles
