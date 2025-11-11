@@ -3,12 +3,12 @@ import uuid
 
 
 # ----------------------------------------
-# 1️⃣ 환자 정보 테이블 (dbr_patients)
+# 1. 환자 정보 테이블 (dbr_patients)
 # ----------------------------------------
 class DbrPatients(models.Model):
     SEX_CHOICES = [
-        ('male', '남성'),
-        ('female', '여성'),
+        ('M', '남성'),
+        ('F', '여성'),
     ]
 
     patient_id = models.UUIDField(
@@ -19,8 +19,7 @@ class DbrPatients(models.Model):
     )
     name = models.CharField(max_length=100, verbose_name="이름")
     birth_date = models.DateField(verbose_name="생년월일")
-    sex = models.CharField(max_length=6, choices=SEX_CHOICES, verbose_name="성별")
-    resident_number = models.CharField(max_length=13, blank=True, null=True, verbose_name="주민등록번호")
+    sex = models.CharField(max_length=1, choices=SEX_CHOICES, verbose_name="성별")
     phone = models.CharField(max_length=15, blank=True, null=True, verbose_name="전화번호")
     address = models.CharField(max_length=255, blank=True, null=True, verbose_name="주소")
     height = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, verbose_name="신장(cm)")
@@ -50,7 +49,7 @@ class DbrPatients(models.Model):
         return True
 
 # ----------------------------------------
-# 2️⃣ 혈액검사 결과 테이블 (dbr_blood_results)
+# 2️. 혈액검사 결과 테이블 (dbr_blood_results)
 # ----------------------------------------
 class DbrBloodResults(models.Model):
     blood_result_id = models.AutoField(primary_key=True)
@@ -85,7 +84,7 @@ class DbrBloodResults(models.Model):
 
 
 # ----------------------------------------
-# 3️⃣ 혈액검사 기준 테이블 (dbr_blood_test_references)
+# 3️. 혈액검사 기준 테이블 (dbr_blood_test_references)
 # ----------------------------------------
 class DbrBloodTestReferences(models.Model):
     reference_id = models.AutoField(primary_key=True)
@@ -106,7 +105,7 @@ class DbrBloodTestReferences(models.Model):
 
 
 # ----------------------------------------
-# 4️⃣ 일정관리 테이블 (dbr_appointments)
+# 4️. 일정관리 테이블 (dbr_appointments)
 # ----------------------------------------
 class DbrAppointments(models.Model):
     APPOINTMENT_TYPE_CHOICES = [
@@ -162,3 +161,125 @@ class DbrAppointments(models.Model):
     def __str__(self):
         return f"{self.patient.name} - {self.hospital} ({self.appointment_date})"
 
+
+# ----------------------------------------
+# 4. Medications (약물 정보)
+# ----------------------------------------
+class Medication(models.Model):
+    medication_id = models.AutoField(primary_key=True)
+    patient = models.ForeignKey(
+        DbrPatients,
+        on_delete=models.CASCADE,
+        related_name="medications",
+        db_column="patient_id",
+        verbose_name="환자 ID"
+    )
+    medication_name = models.CharField(max_length=200, verbose_name="약물명")
+    dosage = models.CharField(max_length=100, verbose_name="용량")  # "100mg"
+    frequency = models.CharField(max_length=100, verbose_name="복용 빈도")  # "1일 2회"
+    timing = models.CharField(max_length=100, verbose_name="복용 시간")  # "아침/저녁 식후"
+    start_date = models.DateField(verbose_name="복용 시작일")
+    end_date = models.DateField(null=True, blank=True, verbose_name="복용 종료일")
+    is_active = models.BooleanField(default=True, verbose_name="활성 상태")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일")
+
+    class Meta:
+        managed = True
+        db_table = "dbr_medications"
+        verbose_name = "약물 정보"
+        verbose_name_plural = "약물 정보 목록"
+        ordering = ['-start_date']
+
+    def __str__(self):
+        return f"{self.patient.name} - {self.medication_name}"
+
+
+# ----------------------------------------
+# 5. MedicationLog (복용 기록)
+# ----------------------------------------
+class MedicationLog(models.Model):
+    log_id = models.AutoField(primary_key=True)
+    medication = models.ForeignKey(
+        Medication,
+        on_delete=models.CASCADE,
+        related_name="logs",
+        db_column="medication_id",
+        verbose_name="약물 ID"
+    )
+    taken_date = models.DateField(verbose_name="복용 날짜")
+    taken_time = models.TimeField(verbose_name="복용 시간")
+    is_taken = models.BooleanField(default=True, verbose_name="복용 여부")
+    notes = models.TextField(blank=True, null=True, verbose_name="메모")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일")
+
+    class Meta:
+        managed = True
+        db_table = "dbr_medication_logs"
+        verbose_name = "복용 기록"
+        verbose_name_plural = "복용 기록 목록"
+        ordering = ['-taken_date', '-taken_time']
+
+    def __str__(self):
+        return f"{self.medication.medication_name} - {self.taken_date}"
+
+
+# ----------------------------------------
+# 6. MedicalFacility (의료기관)
+# ----------------------------------------
+class MedicalFacility(models.Model):
+    FACILITY_TYPE_CHOICES = [
+        ('hospital', '병원'),
+        ('clinic', '의원'),
+        ('pharmacy', '약국'),
+    ]
+
+    facility_id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=200, verbose_name="기관명")
+    type = models.CharField(max_length=50, choices=FACILITY_TYPE_CHOICES, verbose_name="기관 종류")
+    address = models.CharField(max_length=500, verbose_name="주소")
+    phone = models.CharField(max_length=20, verbose_name="전화번호")
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, verbose_name="위도")
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, verbose_name="경도")
+    rating = models.DecimalField(max_digits=2, decimal_places=1, null=True, blank=True, verbose_name="평점")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일")
+
+    class Meta:
+        managed = True
+        db_table = "dbr_medical_facilities"
+        verbose_name = "의료기관"
+        verbose_name_plural = "의료기관 목록"
+
+    def __str__(self):
+        return f"{self.name} ({self.get_type_display()})"
+
+
+# ----------------------------------------
+# 7. FavoriteFacility (즐겨찾기)
+# ----------------------------------------
+class FavoriteFacility(models.Model):
+    favorite_id = models.AutoField(primary_key=True)
+    patient = models.ForeignKey(
+        DbrPatients,
+        on_delete=models.CASCADE,
+        related_name="favorite_facilities",
+        db_column="patient_id",
+        verbose_name="환자 ID"
+    )
+    facility = models.ForeignKey(
+        MedicalFacility,
+        on_delete=models.CASCADE,
+        related_name="favorited_by",
+        db_column="facility_id",
+        verbose_name="의료기관 ID"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일")
+
+    class Meta:
+        managed = True
+        db_table = "dbr_favorite_facilities"
+        verbose_name = "즐겨찾기"
+        verbose_name_plural = "즐겨찾기 목록"
+        unique_together = ('patient', 'facility')
+
+    def __str__(self):
+        return f"{self.patient.name} - {self.facility.name}"

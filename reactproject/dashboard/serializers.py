@@ -1,7 +1,10 @@
 # liverguard/serializers.py
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password, check_password
-from .models import DbrPatients, DbrBloodResults, DbrAppointments, DbrBloodTestReferences
+from .models import (
+    DbrPatients, DbrBloodResults, DbrAppointments, DbrBloodTestReferences,
+    Medication, MedicationLog, MedicalFacility, FavoriteFacility
+)
 from rest_framework_simplejwt.tokens import RefreshToken
 
 # Auth serializers
@@ -93,3 +96,45 @@ class BloodTestReferenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = DbrBloodTestReferences
         fields = '__all__'
+
+
+# ==================== 약물 관련 Serializers ====================
+class MedicationSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source='patient.name', read_only=True)
+
+    class Meta:
+        model = Medication
+        fields = '__all__'
+        read_only_fields = ['created_at']
+
+
+class MedicationLogSerializer(serializers.ModelSerializer):
+    medication_name = serializers.CharField(source='medication.medication_name', read_only=True)
+    patient_name = serializers.CharField(source='medication.patient.name', read_only=True)
+
+    class Meta:
+        model = MedicationLog
+        fields = '__all__'
+        read_only_fields = ['created_at']
+
+
+# ==================== 의료기관 관련 Serializers ====================
+class MedicalFacilitySerializer(serializers.ModelSerializer):
+    type_display = serializers.CharField(source='get_type_display', read_only=True)
+
+    class Meta:
+        model = MedicalFacility
+        fields = '__all__'
+        read_only_fields = ['created_at']
+
+
+class FavoriteFacilitySerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source='patient.name', read_only=True)
+    facility_name = serializers.CharField(source='facility.name', read_only=True)
+    facility_type = serializers.CharField(source='facility.type', read_only=True)
+    facility_address = serializers.CharField(source='facility.address', read_only=True)
+
+    class Meta:
+        model = FavoriteFacility
+        fields = '__all__'
+        read_only_fields = ['created_at']
