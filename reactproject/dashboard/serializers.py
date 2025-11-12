@@ -41,6 +41,7 @@ class DbrPatientLoginSerializer(serializers.Serializer):
     def validate(self, data):
         user_id = data.get("user_id")
         password = data.get("password")
+
         try:
             user = DbrPatients.objects.get(user_id=user_id)
         except DbrPatients.DoesNotExist:
@@ -49,19 +50,9 @@ class DbrPatientLoginSerializer(serializers.Serializer):
         if not check_password(password, user.password):
             raise serializers.ValidationError({"password": "비밀번호가 올바르지 않습니다."})
 
-        # ✅ 인증 성공 시 JWT 발급
-        refresh = RefreshToken.for_user(user)
-
-        return {
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
-            "user": {
-                "user_id": user.user_id,
-                "name": user.name,
-                "sex": user.sex,
-                "phone": user.phone,
-            },
-        }
+        # ✅ 검증 통과 시 user 객체만 전달
+        data["user"] = user
+        return data
 
 class PatientSerializer(serializers.ModelSerializer):
     class Meta:
@@ -70,7 +61,7 @@ class PatientSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'password': {'write_only': True}  # 비밀번호는 응답에 포함하지 않음
         }
-
+        
 
 class BloodResultSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source='patient.name', read_only=True)

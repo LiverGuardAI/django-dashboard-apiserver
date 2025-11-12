@@ -21,6 +21,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken, TokenError
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # =========================== Auth view ===========================
 # sign up view
@@ -95,14 +96,36 @@ class DbrPatientLoginView(APIView):
                         "password": ["비밀번호가 올바르지 않습니다."]
                     }
                 }
-            )
-        }
+            ),
+        },
     )
     def post(self, request):
         serializer = DbrPatientLoginSerializer(data=request.data)
         if serializer.is_valid():
-            return Response(serializer.validated_data, status=status.HTTP_200_OK)
-        print("❌ Login Serializer errors:", serializer.errors)  # 🔥 여기에 실제 원인 표시
+            user = serializer.validated_data["user"]
+
+            # ✅ JWT 발급 로직은 View에서 처리
+            refresh = RefreshToken.for_user(user)
+            access = refresh.access_token
+
+            response_data = {
+                "access": str(access),
+                "refresh": str(refresh),
+                "user": {
+                    "patient_id": user.patient_id,
+                    "user_id": user.user_id,
+                    "name": user.name,
+                    "sex": user.sex,
+                    "phone": user.phone,
+                },
+            }
+
+            print(f"🔍 Response user data: {response_data['user']}")
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        # ❌ 로그인 실패
+        print("❌ Login errors:", serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # logout view
