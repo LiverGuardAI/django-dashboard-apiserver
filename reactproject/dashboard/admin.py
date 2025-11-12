@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     DbrPatients, DbrBloodResults, DbrAppointments,
-    DbrBloodTestReferences, Announcements
+    DbrBloodTestReferences,
 )
 
 
@@ -37,10 +37,3 @@ class BloodTestReferencesAdmin(admin.ModelAdmin):
     search_fields = ['name']
 
 
-@admin.register(Announcements)
-class AnnouncementsAdmin(admin.ModelAdmin):
-    list_display = ['announcements_id', 'title', 'user', 'created_at', 'updated_at']
-    list_filter = ['created_at']
-    search_fields = ['title', 'content']
-    readonly_fields = ['created_at', 'updated_at']
-    date_hierarchy = 'created_at'

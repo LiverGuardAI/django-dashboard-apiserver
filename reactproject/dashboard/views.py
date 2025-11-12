@@ -2,11 +2,15 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import generics
-from .models import DbrPatients, DbrBloodResults, DbrAppointments, DbrBloodTestReferences, Announcements
+from .models import (
+    DbrPatients, DbrBloodResults, DbrAppointments, DbrBloodTestReferences,
+    Medication, MedicationLog,
+)
 from .serializers import (
     PatientSerializer, BloodResultSerializer, AppointmentSerializer,
-    BloodTestReferenceSerializer, AnnouncementSerializer,
+    BloodTestReferenceSerializer,
     DbrPatientRegisterSerializer, DbrPatientLoginSerializer,
+    MedicationSerializer, MedicationLogSerializer,
 )
 from dashboard.authentication import PatientJWTAuthentication
 from rest_framework import status
@@ -14,11 +18,11 @@ from django.contrib.auth import authenticate, login
 from rest_framework.decorators import api_view
 from django.contrib.auth.hashers import check_password
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework_simplejwt.tokens import RefreshToken, TokenError
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken, TokenError
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
-# Auth view
+# =========================== Auth view ===========================
 # sign up view
 class DbrPatientRegisterView(APIView):
     permission_classes = [AllowAny] 
@@ -158,7 +162,6 @@ class DbrPatientLogoutView(APIView):
                 {"message": "로그아웃되었습니다."},
                 status=status.HTTP_205_RESET_CONTENT
             )
-
         except TokenError:
             return Response(
                 {"error": "유효하지 않은 refresh token입니다."},
@@ -202,6 +205,65 @@ class DbrPatientUserView(APIView):
             "height": user.height,
             "weight": user.weight,
         })
+
+# access token 재발급 view
+class DbrPatientTokenRefreshView(APIView):
+    """
+    JWT Refresh API
+    - refresh token으로 access token 재발급
+    """
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_description="access token 만료 시 refresh token으로 새로운 access token 발급",
+        operation_summary="토큰 재발급 (refresh)",
+        tags=["Auth"],
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=["refresh"],
+            properties={
+                "refresh": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="Refresh Token"
+                ),
+            },
+        ),
+        responses={
+            200: openapi.Response(
+                description="새로운 access token 발급 성공",
+                examples={
+                    "application/json": {
+                        "access": "new_access_token_string"
+                    }
+                }
+            ),
+            400: openapi.Response(
+                description="토큰 만료 또는 유효하지 않음",
+                examples={"application/json": {"error": "유효하지 않은 refresh token"}},
+            ),
+        },
+    )
+    def post(self, request):
+        refresh_token = request.data.get("refresh")
+
+        if not refresh_token:
+            return Response(
+                {"error": "refresh token이 필요합니다."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # ✅ 새 access token 발급
+            token = RefreshToken(refresh_token)
+            new_access = str(token.access_token)
+
+            return Response({"access": new_access}, status=status.HTTP_200_OK)
+
+        except TokenError:
+            return Response(
+                {"error": "유효하지 않은 refresh token입니다."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
 
 
 # ==================== 환자 관련 Views ====================
@@ -392,46 +454,6 @@ class BloodTestReferenceDetailView(generics.RetrieveUpdateDestroyAPIView):
     @swagger_auto_schema(tags=["Blood Test References"], operation_summary="혈액검사 기준 삭제")
     def delete(self, request, *args, **kwargs):
         return super().delete(request, *args, **kwargs)
-
-
-# ==================== 공지사항 관련 Views ====================
-class AnnouncementListView(generics.ListCreateAPIView):
-    """공지사항 목록 조회 및 생성"""
-    queryset = Announcements.objects.all().order_by('-created_at')
-    serializer_class = AnnouncementSerializer
-
-    @swagger_auto_schema(tags=["Announcements"], operation_summary="공지사항 목록 조회")
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
-
-    @swagger_auto_schema(tags=["Announcements"], operation_summary="공지사항 등록")
-    def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
-
-
-class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """공지사항 상세 조회, 수정, 삭제"""
-    queryset = Announcements.objects.all()
-    serializer_class = AnnouncementSerializer
-    lookup_field = 'announcements_id'
-
-    @swagger_auto_schema(tags=["Announcements"], operation_summary="공지사항 상세 조회")
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
-
-    @swagger_auto_schema(tags=["Announcements"], operation_summary="공지사항 수정")
-    def put(self, request, *args, **kwargs):
-        return super().put(request, *args, **kwargs)
-
-    @swagger_auto_schema(tags=["Announcements"], operation_summary="공지사항 부분 수정")
-    def patch(self, request, *args, **kwargs):
-        return super().patch(request, *args, **kwargs)
-
-    @swagger_auto_schema(tags=["Announcements"], operation_summary="공지사항 삭제")
-    def delete(self, request, *args, **kwargs):
-        return super().delete(request, *args, **kwargs)
-
-
 
 
 # ==================== Dashboard Graph Views ====================
@@ -742,3 +764,193 @@ def blood_result_analysis(request, blood_result_id):
             {'error': '검사 결과를 찾을 수 없습니다.'}, 
             status=404
         )
+
+
+# ==================== 약물 관련 Views ====================
+class MedicationListView(generics.ListCreateAPIView):
+    """약물 목록 조회 및 생성"""
+    queryset = Medication.objects.all().select_related('patient')
+    serializer_class = MedicationSerializer
+    authentication_classes = [PatientJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(tags=["Medications"], operation_summary="약물 목록 조회")
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=["Medications"], operation_summary="약물 등록")
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
+
+class MedicationDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """약물 상세 조회, 수정, 삭제"""
+    queryset = Medication.objects.all().select_related('patient')
+    serializer_class = MedicationSerializer
+    lookup_field = 'medication_id'
+    authentication_classes = [PatientJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(tags=["Medications"], operation_summary="약물 상세 조회")
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=["Medications"], operation_summary="약물 정보 수정")
+    def put(self, request, *args, **kwargs):
+        return super().put(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=["Medications"], operation_summary="약물 정보 부분 수정")
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=["Medications"], operation_summary="약물 삭제")
+    def delete(self, request, *args, **kwargs):
+        return super().delete(request, *args, **kwargs)
+
+
+class PatientMedicationsView(generics.ListAPIView):
+    """특정 환자의 약물 목록 조회"""
+    serializer_class = MedicationSerializer
+    authentication_classes = [PatientJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(tags=["Medications"], operation_summary="특정 환자의 약물 목록 조회")
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        patient_id = self.kwargs['patient_id']
+        return Medication.objects.filter(patient_id=patient_id, is_active=True).order_by('-start_date')
+
+
+# ==================== 복용 기록 관련 Views ====================
+class MedicationLogListView(generics.ListCreateAPIView):
+    """복용 기록 목록 조회 및 생성"""
+    queryset = MedicationLog.objects.all().select_related('medication__patient')
+    serializer_class = MedicationLogSerializer
+    authentication_classes = [PatientJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(tags=["Medication Logs"], operation_summary="복용 기록 목록 조회")
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=["Medication Logs"], operation_summary="복용 기록 등록")
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
+
+class MedicationLogDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """복용 기록 상세 조회, 수정, 삭제"""
+    queryset = MedicationLog.objects.all().select_related('medication__patient')
+    serializer_class = MedicationLogSerializer
+    lookup_field = 'log_id'
+    authentication_classes = [PatientJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(tags=["Medication Logs"], operation_summary="복용 기록 상세 조회")
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=["Medication Logs"], operation_summary="복용 기록 수정")
+    def put(self, request, *args, **kwargs):
+        return super().put(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=["Medication Logs"], operation_summary="복용 기록 부분 수정")
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=["Medication Logs"], operation_summary="복용 기록 삭제")
+    def delete(self, request, *args, **kwargs):
+        return super().delete(request, *args, **kwargs)
+
+
+# # ==================== 의료기관 관련 Views ====================
+# class MedicalFacilityListView(generics.ListCreateAPIView):
+#     """의료기관 목록 조회 및 생성"""
+#     queryset = MedicalFacility.objects.all()
+#     serializer_class = MedicalFacilitySerializer
+#     authentication_classes = [PatientJWTAuthentication]
+#     permission_classes = [IsAuthenticated]
+
+#     @swagger_auto_schema(tags=["Medical Facilities"], operation_summary="의료기관 목록 조회")
+#     def get(self, request, *args, **kwargs):
+#         return super().get(request, *args, **kwargs)
+
+#     @swagger_auto_schema(tags=["Medical Facilities"], operation_summary="의료기관 등록")
+#     def post(self, request, *args, **kwargs):
+#         return super().post(request, *args, **kwargs)
+
+
+# class MedicalFacilityDetailView(generics.RetrieveUpdateDestroyAPIView):
+#     """의료기관 상세 조회, 수정, 삭제"""
+#     queryset = MedicalFacility.objects.all()
+#     serializer_class = MedicalFacilitySerializer
+#     lookup_field = 'facility_id'
+#     authentication_classes = [PatientJWTAuthentication]
+#     permission_classes = [IsAuthenticated]
+
+#     @swagger_auto_schema(tags=["Medical Facilities"], operation_summary="의료기관 상세 조회")
+#     def get(self, request, *args, **kwargs):
+#         return super().get(request, *args, **kwargs)
+
+#     @swagger_auto_schema(tags=["Medical Facilities"], operation_summary="의료기관 정보 수정")
+#     def put(self, request, *args, **kwargs):
+#         return super().put(request, *args, **kwargs)
+
+#     @swagger_auto_schema(tags=["Medical Facilities"], operation_summary="의료기관 정보 부분 수정")
+#     def patch(self, request, *args, **kwargs):
+#         return super().patch(request, *args, **kwargs)
+
+#     @swagger_auto_schema(tags=["Medical Facilities"], operation_summary="의료기관 삭제")
+#     def delete(self, request, *args, **kwargs):
+#         return super().delete(request, *args, **kwargs)
+
+
+# # ==================== 즐겨찾기 관련 Views ====================
+# class FavoriteFacilityListView(generics.ListCreateAPIView):
+#     """즐겨찾기 목록 조회 및 생성"""
+#     queryset = FavoriteFacility.objects.all().select_related('patient', 'facility')
+#     serializer_class = FavoriteFacilitySerializer
+#     authentication_classes = [PatientJWTAuthentication]
+#     permission_classes = [IsAuthenticated]
+
+#     @swagger_auto_schema(tags=["Favorite Facilities"], operation_summary="즐겨찾기 목록 조회")
+#     def get(self, request, *args, **kwargs):
+#         return super().get(request, *args, **kwargs)
+
+#     @swagger_auto_schema(tags=["Favorite Facilities"], operation_summary="즐겨찾기 추가")
+#     def post(self, request, *args, **kwargs):
+#         return super().post(request, *args, **kwargs)
+
+
+# class FavoriteFacilityDetailView(generics.RetrieveDestroyAPIView):
+#     """즐겨찾기 상세 조회, 삭제"""
+#     queryset = FavoriteFacility.objects.all().select_related('patient', 'facility')
+#     serializer_class = FavoriteFacilitySerializer
+#     lookup_field = 'favorite_id'
+#     authentication_classes = [PatientJWTAuthentication]
+#     permission_classes = [IsAuthenticated]
+
+#     @swagger_auto_schema(tags=["Favorite Facilities"], operation_summary="즐겨찾기 상세 조회")
+#     def get(self, request, *args, **kwargs):
+#         return super().get(request, *args, **kwargs)
+
+#     @swagger_auto_schema(tags=["Favorite Facilities"], operation_summary="즐겨찾기 삭제")
+#     def delete(self, request, *args, **kwargs):
+#         return super().delete(request, *args, **kwargs)
+
+
+# class PatientFavoriteFacilitiesView(generics.ListAPIView):
+#     """특정 환자의 즐겨찾기 목록 조회"""
+#     serializer_class = FavoriteFacilitySerializer
+#     authentication_classes = [PatientJWTAuthentication]
+#     permission_classes = [IsAuthenticated]
+
+#     @swagger_auto_schema(tags=["Favorite Facilities"], operation_summary="특정 환자의 즐겨찾기 목록 조회")
+#     def get(self, request, *args, **kwargs):
+#         return super().get(request, *args, **kwargs)
+
+#     def get_queryset(self):
+#         patient_id = self.kwargs['patient_id']
+#         return FavoriteFacility.objects.filter(patient_id=patient_id).select_related('facility')
