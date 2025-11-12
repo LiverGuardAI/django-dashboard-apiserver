@@ -246,3 +246,64 @@ class MedicationLog(models.Model):
     def __str__(self):
         return f"{self.medication.medication_name} - {self.taken_date}"
 
+
+# # ----------------------------------------
+# # 6. MedicalFacility (의료 시설 - HealthcareMap 연동)
+# # ----------------------------------------
+# class MedicalFacility(models.Model):
+#     FACILITY_TYPE_CHOICES = [
+#         ('hospital', '병원'),
+#         ('clinic', '의원'),
+#         ('pharmacy', '약국'),
+#     ]
+
+#     facility_id = models.AutoField(primary_key=True)
+#     facility_type = models.CharField(max_length=20, choices=FACILITY_TYPE_CHOICES, verbose_name="시설 유형")
+#     name = models.CharField(max_length=200, verbose_name="시설명")
+#     address = models.CharField(max_length=500, verbose_name="주소")
+#     phone = models.CharField(max_length=20, blank=True, null=True, verbose_name="전화번호")
+#     coordinate_x = models.DecimalField(max_digits=12, decimal_places=8, blank=True, null=True, verbose_name="좌표(x)")
+#     coordinate_y = models.DecimalField(max_digits=12, decimal_places=8, blank=True, null=True, verbose_name="좌표(y)")
+#     created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일")
+
+#     class Meta:
+#         managed = True
+#         db_table = "dbr_medical_facilities"
+#         verbose_name = "의료 시설"
+#         verbose_name_plural = "의료 시설 목록"
+
+#     def __str__(self):
+#         return f"{self.get_facility_type_display()} - {self.name}"
+
+
+# # ----------------------------------------
+# # 7. FavoriteFacility (즐겨찾기 시설)
+# # ----------------------------------------
+# class FavoriteFacility(models.Model):
+#     favorite_id = models.AutoField(primary_key=True)
+#     patient = models.ForeignKey(
+#         DbrPatients,
+#         on_delete=models.CASCADE,
+#         related_name="favorite_facilities",
+#         db_column="patient_id",
+#         verbose_name="환자 ID"
+#     )
+#     facility = models.ForeignKey(
+#         MedicalFacility,
+#         on_delete=models.CASCADE,
+#         related_name="favorited_by",
+#         db_column="facility_id",
+#         verbose_name="시설 ID"
+#     )
+#     created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일")
+
+#     class Meta:
+#         managed = True
+#         db_table = "dbr_favorite_facilities"
+#         verbose_name = "즐겨찾기 시설"
+#         verbose_name_plural = "즐겨찾기 시설 목록"
+#         unique_together = [['patient', 'facility']]
+
+#     def __str__(self):
+#         return f"{self.patient.name} - {self.facility.name}"
+

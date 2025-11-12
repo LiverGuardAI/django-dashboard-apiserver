@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     # "rest_framework_simplejwt.token_blacklist",
     "dashboard",
+    "HealthcareMap",
     "django_extensions",
     'drf_yasg',
 ]
@@ -124,7 +125,12 @@ DATABASES = {
         'PASSWORD': os.getenv('MYSQL_PASSWORD'),
         'HOST': os.getenv('MYSQL_HOST'),  # 기본값: docker-compose의 db 서비스
         'PORT': os.getenv('MYSQL_PORT', '3306'),
-        'OPTIONS': {'charset': 'utf8mb4'},
+        # 'OPTIONS': {
+        #     'charset': 'utf8mb4',
+        #     'connect_timeout': 28800,  # 8시간
+        #     'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        # },
+        'CONN_MAX_AGE': 0,  # 연결을 매번 새로 생성 (장시간 작업 시 타임아웃 방지)
     }
 }
 
