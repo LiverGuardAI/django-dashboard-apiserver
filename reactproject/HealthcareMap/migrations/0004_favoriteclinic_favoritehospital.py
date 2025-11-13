@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('HealthcareMap', '0003_alter_clinic_unique_together_and_more'),
+        ('HealthcareMap', '0003_create_triggers'),
         ('dashboard', '0005_remove_dbrpatients_resident_number_and_more'),
     ]
 

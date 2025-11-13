@@ -80,13 +80,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = DbrAppointments
         fields = '__all__'
-        read_only_fields = ['created_at', 'updated_at']
-
-    def update(self, instance, validated_data):
-        # 수정 시 patient_id, appointment_id는 변경 불가 (제거)
-        validated_data.pop('patient_id', None)
-        validated_data.pop('appointment_id', None)
-        return super().update(instance, validated_data)
+        read_only_fields = ['appointment_id', 'patient_id', 'created_at', 'updated_at']
 
 
 class BloodTestReferenceSerializer(serializers.ModelSerializer):
