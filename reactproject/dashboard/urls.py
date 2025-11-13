@@ -12,6 +12,7 @@ from .views import (
     DbrPatientRegisterView, DbrPatientLoginView, DbrPatientLogoutView, DbrPatientUserView, DbrPatientTokenRefreshView,
     # Dashboard
     DashboardGraphsView,
+    DashboardTimeSeriesView, 
     # 약물
     MedicationListView, MedicationDetailView, PatientMedicationsView,
     # 복용 기록
@@ -34,6 +35,7 @@ urlpatterns = [
     
     # ==================== Dashboard ====================
     path('dashboard/graphs/', DashboardGraphsView.as_view(), name='dashboard-graphs'),
+    path('dashboard/time-series/', DashboardTimeSeriesView.as_view(), name='dashboard-time-series'),
     
     # ==================== 환자 ====================
     path('patients/', PatientListView.as_view(), name='patient-list'),

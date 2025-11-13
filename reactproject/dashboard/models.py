@@ -88,7 +88,7 @@ class DbrBloodResults(models.Model):
         verbose_name_plural = "혈액검사 결과 목록"
 
     def save(self, *args, **kwargs):
-        if self.bilirubin and self.albumin and self.bilirubin > 0:
+        if self.bilirubin and self.albumin > 0:
             import math
             log10_bilirubin = math.log10(float(self.bilirubin))
             self.albi = (0.66 * log10_bilirubin) - (0.085 * float(self.albumin))
