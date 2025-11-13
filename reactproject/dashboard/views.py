@@ -23,6 +23,8 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from flask_services.survival_service import predict_survival_from_flask
+
 # =========================== Auth view ===========================
 # sign up view
 class DbrPatientRegisterView(APIView):
@@ -334,7 +336,7 @@ class BloodResultListView(generics.ListCreateAPIView):
     serializer_class = BloodResultSerializer
     authentication_classes = [PatientJWTAuthentication]
     permission_classes = [IsAuthenticated]
-
+    
     @swagger_auto_schema(tags=["Blood Results"], operation_summary="혈액검사 결과 목록 조회")
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
@@ -982,3 +984,34 @@ class MedicationLogDetailView(generics.RetrieveUpdateDestroyAPIView):
 #     def get_queryset(self):
 #         patient_id = self.kwargs['patient_id']
 #         return FavoriteFacility.objects.filter(patient_id=patient_id).select_related('facility')
+
+
+# ----------------------- flask ai view -----------------------
+class SurvivalPredictionAPIView(APIView):
+
+    def post(self, request):
+        """
+        Client -> Django -> Flask -> Django -> Client
+        """
+        data = request.data
+
+        payload = {
+            "sex": data.get("sex"),
+            "age_at_index": data.get("age_at_index"),
+            "bmi": data.get("bmi"),
+            "AFP": data.get("AFP"),
+            "albumin": data.get("albumin"),
+            "PT": data.get("PT"),
+            "target_days": data.get("target_days", 1825),
+        }
+
+        flask_result = predict_survival_from_flask(payload)
+
+        if "error" in flask_result:
+            return Response(flask_result, status=status.HTTP_502_BAD_GATEWAY)
+
+        return Response({
+            "survival_probability": flask_result.get("survival_probability"),
+            "target_day": flask_result.get("target_day"),
+            "plot_base64": flask_result.get("plot_base64"),
+        }, status=200)

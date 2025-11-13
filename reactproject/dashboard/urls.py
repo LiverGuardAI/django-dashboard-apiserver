@@ -20,6 +20,8 @@ from .views import (
     # MedicalFacilityListView, MedicalFacilityDetailView,
     # 즐겨찾기
     # FavoriteFacilityListView, FavoriteFacilityDetailView, PatientFavoriteFacilitiesView,
+    # flask ai
+    SurvivalPredictionAPIView,
 )
 
 urlpatterns = [
@@ -68,4 +70,7 @@ urlpatterns = [
     # path('favorite-facilities/', FavoriteFacilityListView.as_view(), name='favorite-facility-list'),
     # path('favorite-facilities/<int:favorite_id>/', FavoriteFacilityDetailView.as_view(), name='favorite-facility-detail'),
     # path('patients/<uuid:patient_id>/favorite-facilities/', PatientFavoriteFacilitiesView.as_view(), name='patient-favorite-facilities'),
+    
+    # ==================== flask ai ====================
+    path("predict-survival/", SurvivalPredictionAPIView.as_view(), name="predict_survival"),
 ]
