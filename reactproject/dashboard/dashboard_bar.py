@@ -60,7 +60,7 @@ INDICATORS = {
         'display_map': {1: 'Grade 1', 2: 'Grade 2', 3: 'Grade 3'},
     },
     'ggt': {
-        'title': 'GGT (담도/알코올)',
+        'title': 'GGT',
         'unit': 'U/L',
         'vmin': 0,
         'vmax': 150,
@@ -85,7 +85,7 @@ INDICATORS = {
     },
     # 부가 지표
     'bilirubin': {
-        'title': 'Bilirubin (황달)',
+        'title': 'Bilirubin',
         'unit': 'mg/dL',
         'vmin': 0.1,
         'vmax': 3.5,
@@ -94,13 +94,62 @@ INDICATORS = {
         'reverse': False
     },
     'albumin': {
-        'title': 'Albumin (간 합성)',
+        'title': 'Albumin',
         'unit': 'g/dL',
         'vmin': 1.5,
         'vmax': 5.5,
         'ranges': [(1.5, 2.0), (2.0, 3.5), (3.5, 5.5)],
         'labels': ['위험\n<2.0', '주의\n2.0-3.5', '정상\n3.5-5.5'],
         'reverse': True  # 낮을수록 위험
+    },
+    
+    'alp': {
+        'title': 'ALP',
+        'unit': 'U/L',
+        'vmin': 0,
+        'vmax': 200,
+        'ranges': [(40, 120), (120, 160), (160, 200)],
+        'labels': ['정상\n40-120', '경계\n120-160', '위험\n160+'],
+        'reverse': False,
+        'gender_specific': True,
+        'male_threshold': 120,
+        'female_threshold': 104
+    },
+    'total_protein': {
+        'title': 'Total Protein',
+        'unit': 'g/dL',
+        'vmin': 4.0,
+        'vmax': 9.0,
+        'ranges': [(4.0, 6.0), (6.0, 8.0), (8.0, 9.0)],
+        'labels': ['낮음\n<6.0', '정상\n6.0-8.0', '높음\n8.0+'],
+        'reverse': False
+    },
+    'platelet': {
+        'title': 'Platelet',
+        'unit': '×10³/μL',
+        'vmin': 50,
+        'vmax': 500,
+        'ranges': [(50, 150), (150, 400), (400, 500)],
+        'labels': ['낮음\n<150', '정상\n150-400', '높음\n400+'],
+        'reverse': False
+    },
+    'pt': {
+        'title': 'PT',
+        'unit': 'seconds',
+        'vmin': 9,
+        'vmax': 16,
+        'ranges': [(9, 11), (11, 13), (13, 16)],
+        'labels': ['낮음\n<11', '정상\n11-13', '높음\n13+'],
+        'reverse': False
+    },
+    'inr': {
+        'title': 'INR',
+        'unit': '',
+        'vmin': 0.5,
+        'vmax': 2.5,
+        'ranges': [(0.5, 0.8), (0.8, 1.2), (1.2, 2.5)],
+        'labels': ['낮음\n<0.8', '정상\n0.8-1.2', '높음\n1.2+'],
+        'reverse': False
     },
 }
 

@@ -544,7 +544,7 @@ class DashboardGraphsView(APIView):
                 )
 
             # 캐시 키
-            cache_key = f"graphs_v2_{patient.patient_id}_{latest_result.blood_result_id}"
+            cache_key = f"graphs_v3_{patient.patient_id}_{latest_result.blood_result_id}"
             
             # 캐시 확인
             cached_graphs = cache.get(cache_key)
@@ -797,6 +797,353 @@ def blood_result_analysis(request, blood_result_id):
             status=404
         )
 
+from datetime import datetime
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+
+class DashboardTimeSeriesView(APIView):
+    """
+    시계열 전체 분석 API
+    """
+    authentication_classes = [PatientJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            patient = request.user
+            
+            # 모든 혈액검사 결과
+            blood_results = DbrBloodResults.objects.filter(
+                patient=patient
+            ).order_by('taken_at')
+
+            if not blood_results.exists():
+                return Response(
+                    {"error": "검사 데이터가 없습니다."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            actual_count = blood_results.count()
+            print(f"🔍 Total blood results count: {actual_count}")
+            
+            # 최신 검사 결과로 경고 상태 판단
+            latest_result = blood_results.last()
+            warning_status = self._analyze_warning_status(latest_result, patient.sex)
+
+            # 시계열 그래프 생성
+            time_series_graphs = self._generate_time_series_graphs(blood_results, patient.sex)
+
+            first_result = blood_results.first()
+            last_result = blood_results.last()
+            
+            start_date = first_result.taken_at
+            end_date = last_result.taken_at
+            
+            # datetime 객체면 문자열로 변환
+            if isinstance(start_date, datetime):
+                start_date = start_date.strftime('%Y-%m-%d')
+            if isinstance(end_date, datetime):
+                end_date = end_date.strftime('%Y-%m-%d')
+
+            response_data = {
+                "patient_name": patient.name,
+                "start_date": start_date,
+                "end_date": end_date,
+                "total_tests": actual_count, 
+                "time_series_graphs": time_series_graphs,
+                "warning_status": warning_status,
+            }
+            
+            print(f"Response data total_tests: {response_data['total_tests']}")
+            print(f"Warning status: {warning_status}")
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(f"DashboardTimeSeriesView error: {e}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def _generate_time_series_graphs(self, blood_results, gender='male'):
+        """모든 필드의 시계열 그래프 생성"""
+        graphs = {}
+        
+        # 필드 목록 (dashboard_bar.py의 INDICATORS와 동일)
+        fields = [
+            'afp', 'ast', 'alt', 'ggt', 'r_gtp', 'alp',
+            'bilirubin', 'albumin', 'total_protein', 
+            'platelet', 'pt', 'albi'
+        ]
+        
+        for field in fields:
+            try:
+                # 데이터 추출
+                dates = []
+                values = []
+                
+                for result in blood_results:
+                    value = getattr(result, field, None)
+                    if value is not None and float(value) != 0:
+                        dates.append(result.taken_at)
+                        values.append(float(value))
+                
+                if not dates:
+                    graphs[field] = None
+                    print(f"No valid data for {field}") 
+                    continue
+                
+                print(f"{field}: {len(dates)} data points")
+                
+                # 그래프 생성
+                img_base64 = self._create_time_series_graph(
+                    dates, 
+                    values, 
+                    field,
+                    gender
+                )
+                graphs[field] = f"data:image/png;base64,{img_base64}"
+                
+            except Exception as e:
+                print(f"Error generating {field} time series: {e}")
+                graphs[field] = None
+        
+        return graphs
+    
+    def _create_time_series_graph(self, dates, values, field, gender='male'):
+        """시계열 그래프 생성"""
+        from .dashboard_bar import INDICATORS
+        import matplotlib.pyplot as plt
+        import matplotlib.dates as mdates
+        import io
+        import base64
+        
+        # 필드 설정
+        config = INDICATORS.get(field, {
+            'title': field.upper(),
+            'unit': '',
+            'vmin': min(values) * 0.9 if values else 0,
+            'vmax': max(values) * 1.1 if values else 100,
+        })
+        
+        title = config.get('title', field.upper())
+        unit = config.get('unit', '')
+        
+        print(f"Generating graph for {field}:")
+        print(f"  - Dates: {len(dates)}")
+        print(f"  - Values: {len(values)}")
+        
+        # Figure 생성
+        fig, ax = plt.subplots(figsize=(10, 4))
+        
+        # 선 그래프
+        ax.plot(dates, values, marker='o', linewidth=2, markersize=6, color='#3498db')
+        
+        # 정상 범위 표시 (있는 경우)
+        if 'ranges' in config and len(config['ranges']) > 0:
+            normal_range = config['ranges'][0]
+            ax.axhspan(normal_range[0], normal_range[1], alpha=0.2, color='green', label='Normal Range')
+    
+        # 축 설정
+        ax.set_xlabel('Date', fontsize=12)
+        ax.set_ylabel(f'{title} ({unit})', fontsize=12)
+        ax.set_title(f'{title} Trend', fontsize=14, fontweight='bold')
+        ax.grid(True, alpha=0.3, linestyle='--')
+        
+        # 날짜 포맷
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+        fig.autofmt_xdate()
+        
+        # 범례
+        if 'ranges' in config:
+            ax.legend(loc='upper right')
+        
+        # Base64 변환
+        buf = io.BytesIO()
+        plt.tight_layout()
+        plt.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+        buf.seek(0)
+        img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+        plt.close(fig)
+        
+        print(f"Graph generated: {len(img_base64)} bytes")
+        
+        return img_base64
+    
+    
+    def _analyze_warning_status(self, result, gender='male'):
+        """
+        최신 검사 결과로 각 지표의 경고 상태 판단
+        """
+        warnings = {}
+        
+        # AFP 분석
+        if result.afp is not None:
+            afp = float(result.afp)
+            if afp >= 400:
+                warnings['afp'] = {
+                    'level': 'critical',
+                    'value': afp,
+                    'message': 'AFP가 매우 높습니다 (400 ng/mL 이상). 즉시 전문의 상담이 필요합니다.'
+                }
+            elif afp >= 100:
+                warnings['afp'] = {
+                    'level': 'danger',
+                    'value': afp,
+                    'message': 'AFP가 높습니다 (100 ng/mL 이상). 간암 의심 - 정밀 검사가 필요합니다.'
+                }
+            elif afp >= 10:
+                warnings['afp'] = {
+                    'level': 'warning',
+                    'value': afp,
+                    'message': 'AFP가 약간 높습니다 (10 ng/mL 이상). 추적 관찰이 필요합니다.'
+                }
+        
+        # AST 분석
+        if result.ast is not None:
+            ast = float(result.ast)
+            threshold = 40 if gender == 'male' else 32
+            if ast >= 50:
+                warnings['ast'] = {
+                    'level': 'danger',
+                    'value': ast,
+                    'message': 'AST가 높습니다 (50 U/L 이상). 간세포 손상이 의심됩니다.'
+                }
+            elif ast >= threshold:
+                warnings['ast'] = {
+                    'level': 'warning',
+                    'value': ast,
+                    'message': f'AST가 경계선입니다 ({threshold} U/L 이상). 주의가 필요합니다.'
+                }
+        
+        # ALT 분석
+        if result.alt is not None:
+            alt = float(result.alt)
+            threshold = 40 if gender == 'male' else 35
+            if alt >= 50:
+                warnings['alt'] = {
+                    'level': 'danger',
+                    'value': alt,
+                    'message': 'ALT가 높습니다 (50 U/L 이상). 간세포 손상이 의심됩니다.'
+                }
+            elif alt >= threshold:
+                warnings['alt'] = {
+                    'level': 'warning',
+                    'value': alt,
+                    'message': f'ALT가 경계선입니다 ({threshold} U/L 이상). 주의가 필요합니다.'
+                }
+        
+        # GGT 분석
+        if result.ggt is not None:
+            ggt = float(result.ggt)
+            threshold = 71 if gender == 'male' else 42
+            if ggt >= 100:
+                warnings['ggt'] = {
+                    'level': 'danger',
+                    'value': ggt,
+                    'message': 'GGT가 높습니다 (100 U/L 이상). 담도 질환 또는 알코올성 간질환 의심.'
+                }
+            elif ggt >= threshold:
+                warnings['ggt'] = {
+                    'level': 'warning',
+                    'value': ggt,
+                    'message': f'GGT가 약간 높습니다 ({threshold} U/L 이상). 음주량 조절이 필요합니다.'
+                }
+        
+        # r-GTP 분석
+        if result.r_gtp is not None:
+            r_gtp = float(result.r_gtp)
+            threshold = 63 if gender == 'male' else 35
+            if r_gtp >= 77:
+                warnings['r_gtp'] = {
+                    'level': 'danger',
+                    'value': r_gtp,
+                    'message': 'r-GTP가 높습니다 (77 U/L 이상). 알코올성 간손상 의심.'
+                }
+            elif r_gtp >= threshold:
+                warnings['r_gtp'] = {
+                    'level': 'warning',
+                    'value': r_gtp,
+                    'message': f'r-GTP가 약간 높습니다 ({threshold} U/L 이상). 음주량 조절이 필요합니다.'
+                }
+        
+        # Bilirubin 분석
+        if result.bilirubin is not None:
+            bilirubin = float(result.bilirubin)
+            if bilirubin >= 2.5:
+                warnings['bilirubin'] = {
+                    'level': 'danger',
+                    'value': bilirubin,
+                    'message': 'Bilirubin이 높습니다 (2.5 mg/dL 이상). 황달 증상 확인 필요.'
+                }
+            elif bilirubin >= 1.2:
+                warnings['bilirubin'] = {
+                    'level': 'warning',
+                    'value': bilirubin,
+                    'message': 'Bilirubin이 약간 높습니다 (1.2 mg/dL 이상). 추적 관찰이 필요합니다.'
+                }
+        
+        # Albumin 분석 (낮을수록 위험)
+        if result.albumin is not None:
+            albumin = float(result.albumin)
+            if albumin < 2.0:
+                warnings['albumin'] = {
+                    'level': 'critical',
+                    'value': albumin,
+                    'message': 'Albumin이 매우 낮습니다 (2.0 g/dL 미만). 즉시 전문의 상담이 필요합니다.'
+                }
+            elif albumin < 2.5:
+                warnings['albumin'] = {
+                    'level': 'danger',
+                    'value': albumin,
+                    'message': 'Albumin이 낮습니다 (2.5 g/dL 미만). 간 기능 저하가 의심됩니다.'
+                }
+            elif albumin < 3.5:
+                warnings['albumin'] = {
+                    'level': 'warning',
+                    'value': albumin,
+                    'message': 'Albumin이 약간 낮습니다 (3.5 g/dL 미만). 영양 상태 개선이 필요합니다.'
+                }
+        
+        # ALP 분석
+        if result.alp is not None:
+            alp = float(result.alp)
+            threshold = 120 if gender == 'male' else 104
+            if alp >= 160:
+                warnings['alp'] = {
+                    'level': 'danger',
+                    'value': alp,
+                    'message': 'ALP가 높습니다 (160 U/L 이상). 담도 질환 의심.'
+                }
+            elif alp >= threshold:
+                warnings['alp'] = {
+                    'level': 'warning',
+                    'value': alp,
+                    'message': f'ALP가 약간 높습니다 ({threshold} U/L 이상). 추적 관찰이 필요합니다.'
+                }
+        
+        # PT 분석
+        if result.pt is not None:
+            pt = float(result.pt)
+            if pt >= 13:
+                warnings['pt'] = {
+                    'level': 'warning',
+                    'value': pt,
+                    'message': 'PT가 연장되었습니다 (13초 이상). 응고 기능 저하 의심.'
+                }
+        
+        # Platelet 분석
+        if result.platelet is not None:
+            platelet = float(result.platelet)
+            if platelet < 150:
+                warnings['platelet'] = {
+                    'level': 'warning',
+                    'value': platelet,
+                    'message': 'Platelet이 낮습니다 (150×10³/μL 미만). 간경화 또는 비장 비대 의심.'
+                }
+        
+        return warnings
 
 # ==================== 약물 관련 Views ====================
 class MedicationListView(generics.ListCreateAPIView):
