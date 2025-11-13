@@ -998,19 +998,6 @@ class SurvivalPredictionAPIView(APIView):
         """
         data = request.data
 
-        # Debugging: Check received data
-        print("===== Django Received Data =====")
-        print(f"Full request.data: {data}")
-        print(f"Individual fields:")
-        print(f"  - sex: {data.get('sex')}")
-        print(f"  - age_at_index: {data.get('age_at_index')}")
-        print(f"  - height: {data.get('height')}")
-        print(f"  - weight: {data.get('weight')}")
-        print(f"  - bmi: {data.get('bmi')}")
-        print(f"  - afp: {data.get('afp')}")
-        print(f"  - albumin: {data.get('albumin')}")
-        print(f"  - pt: {data.get('pt')}")
-
         payload = {
             "sex": data.get("sex"),
             "age_at_index": data.get("age_at_index"),
@@ -1021,11 +1008,7 @@ class SurvivalPredictionAPIView(APIView):
             "target_days": data.get("target_days", 1825),
         }
 
-        print(f"Payload to send to Flask: {payload}")
-
         flask_result = predict_survival_from_flask(payload)
-
-        print(f"Flask response result: {flask_result}")
 
         if "error" in flask_result:
             return Response(flask_result, status=status.HTTP_502_BAD_GATEWAY)
