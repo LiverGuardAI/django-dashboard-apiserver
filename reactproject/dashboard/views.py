@@ -311,6 +311,8 @@ class PatientDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = DbrPatients.objects.all()
     serializer_class = PatientSerializer
     lookup_field = 'patient_id'
+    authentication_classes = [PatientJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(tags=["Patients"], operation_summary="환자 상세 조회")
     def get(self, request, *args, **kwargs):
@@ -988,24 +990,42 @@ class MedicationLogDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 # ----------------------- flask ai view -----------------------
 class SurvivalPredictionAPIView(APIView):
-
+    authentication_classes = [PatientJWTAuthentication]
+    permission_classes = [IsAuthenticated]
     def post(self, request):
         """
         Client -> Django -> Flask -> Django -> Client
         """
         data = request.data
 
+        # Debugging: Check received data
+        print("===== Django Received Data =====")
+        print(f"Full request.data: {data}")
+        print(f"Individual fields:")
+        print(f"  - sex: {data.get('sex')}")
+        print(f"  - age_at_index: {data.get('age_at_index')}")
+        print(f"  - height: {data.get('height')}")
+        print(f"  - weight: {data.get('weight')}")
+        print(f"  - bmi: {data.get('bmi')}")
+        print(f"  - afp: {data.get('afp')}")
+        print(f"  - albumin: {data.get('albumin')}")
+        print(f"  - pt: {data.get('pt')}")
+
         payload = {
             "sex": data.get("sex"),
             "age_at_index": data.get("age_at_index"),
             "bmi": data.get("bmi"),
-            "AFP": data.get("AFP"),
+            "afp": data.get("afp"),
             "albumin": data.get("albumin"),
-            "PT": data.get("PT"),
+            "pt": data.get("pt"),
             "target_days": data.get("target_days", 1825),
         }
 
+        print(f"Payload to send to Flask: {payload}")
+
         flask_result = predict_survival_from_flask(payload)
+
+        print(f"Flask response result: {flask_result}")
 
         if "error" in flask_result:
             return Response(flask_result, status=status.HTTP_502_BAD_GATEWAY)
