@@ -330,7 +330,7 @@ class PatientDetailView(generics.RetrieveUpdateDestroyAPIView):
 # ==================== 혈액검사 관련 Views ====================
 class BloodResultListView(generics.ListCreateAPIView):
     """혈액검사 결과 목록 조회 및 생성"""
-    queryset = DbrBloodResults.objects.all().select_related('patient')
+    queryset = DbrBloodResults.objects.all().select_related('patient_id')
     serializer_class = BloodResultSerializer
     authentication_classes = [PatientJWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -346,7 +346,7 @@ class BloodResultListView(generics.ListCreateAPIView):
 
 class BloodResultDetailView(generics.RetrieveUpdateDestroyAPIView):
     """혈액검사 결과 상세 조회, 수정, 삭제"""
-    queryset = DbrBloodResults.objects.all().select_related('patient')
+    queryset = DbrBloodResults.objects.all().select_related('patient_id')
     serializer_class = BloodResultSerializer
     lookup_field = 'blood_result_id'
     authentication_classes = [PatientJWTAuthentication]
@@ -387,7 +387,7 @@ class PatientBloodResultsView(generics.ListAPIView):
 # ==================== 일정 관련 Views ====================
 class AppointmentListView(generics.ListCreateAPIView):
     """일정 목록 조회 및 생성"""
-    queryset = DbrAppointments.objects.all().select_related('patient')
+    queryset = DbrAppointments.objects.all().select_related('patient_id')
     serializer_class = AppointmentSerializer
     authentication_classes = [PatientJWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -403,7 +403,7 @@ class AppointmentListView(generics.ListCreateAPIView):
 
 class AppointmentDetailView(generics.RetrieveUpdateDestroyAPIView):
     """일정 상세 조회, 수정, 삭제"""
-    queryset = DbrAppointments.objects.all().select_related('patient')
+    queryset = DbrAppointments.objects.all().select_related('patient_id')
     serializer_class = AppointmentSerializer
     lookup_field = 'appointment_id'
     authentication_classes = [PatientJWTAuthentication]
@@ -415,6 +415,11 @@ class AppointmentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     @swagger_auto_schema(tags=["Appointments"], operation_summary="일정 수정")
     def put(self, request, *args, **kwargs):
+        print(f"🔍 PUT Request Data: {request.data}")
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=False)
+        if not serializer.is_valid():
+            print(f"❌ Serializer Errors: {serializer.errors}")
         return super().put(request, *args, **kwargs)
 
     @swagger_auto_schema(tags=["Appointments"], operation_summary="일정 부분 수정")
@@ -747,7 +752,7 @@ def blood_result_analysis(request, blood_result_id):
         analysis = {
             'record_id': result.blood_result_id,
             'taken_at': result.taken_at,
-            'patient_name': result.patient.name,
+            'patient_name': result.patient_id.name,
             'albi_score': float(result.albi) if result.albi else None,
             'albi_grade': result.albi_grade,
             'risk_level': result.risk_level,
@@ -792,7 +797,7 @@ def blood_result_analysis(request, blood_result_id):
 # ==================== 약물 관련 Views ====================
 class MedicationListView(generics.ListCreateAPIView):
     """약물 목록 조회 및 생성"""
-    queryset = Medication.objects.all().select_related('patient')
+    queryset = Medication.objects.all().select_related('patient_id')
     serializer_class = MedicationSerializer
     authentication_classes = [PatientJWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -808,7 +813,7 @@ class MedicationListView(generics.ListCreateAPIView):
 
 class MedicationDetailView(generics.RetrieveUpdateDestroyAPIView):
     """약물 상세 조회, 수정, 삭제"""
-    queryset = Medication.objects.all().select_related('patient')
+    queryset = Medication.objects.all().select_related('patient_id')
     serializer_class = MedicationSerializer
     lookup_field = 'medication_id'
     authentication_classes = [PatientJWTAuthentication]

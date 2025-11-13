@@ -64,7 +64,7 @@ class PatientSerializer(serializers.ModelSerializer):
         
 
 class BloodResultSerializer(serializers.ModelSerializer):
-    patient_name = serializers.CharField(source='patient.name', read_only=True)
+    patient_name = serializers.CharField(source='patient_id.name', read_only=True)
 
     class Meta:
         model = DbrBloodResults
@@ -73,7 +73,7 @@ class BloodResultSerializer(serializers.ModelSerializer):
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
-    patient_name = serializers.CharField(source='patient.name', read_only=True)
+    patient_name = serializers.CharField(source='patient_id.name', read_only=True)
     appointment_type_display = serializers.CharField(source='get_appointment_type_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
 
@@ -81,6 +81,12 @@ class AppointmentSerializer(serializers.ModelSerializer):
         model = DbrAppointments
         fields = '__all__'
         read_only_fields = ['created_at', 'updated_at']
+
+    def update(self, instance, validated_data):
+        # 수정 시 patient_id, appointment_id는 변경 불가 (제거)
+        validated_data.pop('patient_id', None)
+        validated_data.pop('appointment_id', None)
+        return super().update(instance, validated_data)
 
 
 class BloodTestReferenceSerializer(serializers.ModelSerializer):
@@ -91,7 +97,7 @@ class BloodTestReferenceSerializer(serializers.ModelSerializer):
 
 # ==================== 약물 관련 Serializers ====================
 class MedicationSerializer(serializers.ModelSerializer):
-    patient_name = serializers.CharField(source='patient.name', read_only=True)
+    patient_name = serializers.CharField(source='patient_id.name', read_only=True)
 
     class Meta:
         model = Medication
@@ -101,7 +107,7 @@ class MedicationSerializer(serializers.ModelSerializer):
 
 class MedicationLogSerializer(serializers.ModelSerializer):
     medication_name = serializers.CharField(source='medication.medication_name', read_only=True)
-    patient_name = serializers.CharField(source='medication.patient.name', read_only=True)
+    patient_name = serializers.CharField(source='medication.patient_id.name', read_only=True)
 
     class Meta:
         model = MedicationLog

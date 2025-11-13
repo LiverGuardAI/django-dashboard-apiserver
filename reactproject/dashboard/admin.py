@@ -15,18 +15,18 @@ class PatientsAdmin(admin.ModelAdmin):
 
 @admin.register(DbrBloodResults)
 class BloodResultsAdmin(admin.ModelAdmin):
-    list_display = ['blood_result_id', 'patient', 'taken_at', 'ast', 'alt', 'afp', 'created_at']
+    list_display = ['blood_result_id', 'patient_id', 'taken_at', 'ast', 'alt', 'afp', 'created_at']
     list_filter = ['taken_at', 'created_at']
-    search_fields = ['patient__name']
+    search_fields = ['patient_id__name']
     readonly_fields = ['created_at']
     date_hierarchy = 'taken_at'
 
 
 @admin.register(DbrAppointments)
 class AppointmentsAdmin(admin.ModelAdmin):
-    list_display = ['appointment_id', 'patient', 'appointment_date', 'appointment_time', 'hospital', 'appointment_type', 'status']
+    list_display = ['appointment_id', 'patient_id', 'appointment_date', 'appointment_time', 'hospital', 'appointment_type', 'status']
     list_filter = ['appointment_type', 'status', 'appointment_date']
-    search_fields = ['patient__name', 'hospital']
+    search_fields = ['patient_id__name', 'hospital']
     readonly_fields = ['created_at', 'updated_at']
     date_hierarchy = 'appointment_date'
 

@@ -53,7 +53,7 @@ class DbrPatients(models.Model):
 # ----------------------------------------
 class DbrBloodResults(models.Model):
     blood_result_id = models.AutoField(primary_key=True)
-    patient = models.ForeignKey(
+    patient_id = models.ForeignKey(
         DbrPatients,
         on_delete=models.CASCADE,
         related_name="blood_results",
@@ -148,7 +148,7 @@ class DbrAppointments(models.Model):
     ]
 
     appointment_id = models.AutoField(primary_key=True)
-    patient = models.ForeignKey(
+    patient_id = models.ForeignKey(
         DbrPatients,
         on_delete=models.CASCADE,
         related_name="appointments",
@@ -191,7 +191,7 @@ class DbrAppointments(models.Model):
 # ----------------------------------------
 class Medication(models.Model):
     medication_id = models.AutoField(primary_key=True)
-    patient = models.ForeignKey(
+    patient_id = models.ForeignKey(
         DbrPatients,
         on_delete=models.CASCADE,
         related_name="medications",
