@@ -67,7 +67,7 @@ urlpatterns = [
     # ==================== 의료기관 ====================
     # path('medical-facilities/', MedicalFacilityListView.as_view(), name='medical-facility-list'),
     # path('medical-facilities/<int:facility_id>/', MedicalFacilityDetailView.as_view(), name='medical-facility-detail'),
-
+    
     # ==================== 즐겨찾기 ====================
     # path('favorite-facilities/', FavoriteFacilityListView.as_view(), name='favorite-facility-list'),
     # path('favorite-facilities/<int:favorite_id>/', FavoriteFacilityDetailView.as_view(), name='favorite-facility-detail'),
