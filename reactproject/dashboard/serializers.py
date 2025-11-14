@@ -70,6 +70,14 @@ class BloodResultSerializer(serializers.ModelSerializer):
         model = DbrBloodResults
         fields = '__all__'
         read_only_fields = ['created_at']
+        extra_kwargs = {
+            'patient_id': {'required': False}  # 수정 시 필수 아님, 생성 시에만 필수
+        }
+
+    def update(self, instance, validated_data):
+        # 수정 시 patient_id가 들어와도 무시 (변경 불가)
+        validated_data.pop('patient_id', None)
+        return super().update(instance, validated_data)
 
 
 class AppointmentSerializer(serializers.ModelSerializer):

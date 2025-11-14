@@ -61,7 +61,7 @@ class DbrPatientRegisterView(APIView):
             serializer.save()
             return Response({"message": "회원가입이 완료되었습니다."}, status=status.HTTP_201_CREATED)
         else:
-            print("❌ Serializer errors:", serializer.errors)  # 🔥 여기에 실제 원인 표시
+            print("[ERROR] Serializer errors:", serializer.errors)  # [FIRE] 여기에 실제 원인 표시
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # login view
@@ -106,7 +106,7 @@ class DbrPatientLoginView(APIView):
         if serializer.is_valid():
             user = serializer.validated_data["user"]
 
-            # ✅ JWT 발급 로직은 View에서 처리
+            # [OK] JWT 발급 로직은 View에서 처리
             refresh = RefreshToken.for_user(user)
             access = refresh.access_token
 
@@ -122,12 +122,12 @@ class DbrPatientLoginView(APIView):
                 },
             }
 
-            print(f"🔍 Response user data: {response_data['user']}")
+            print(f"[DEBUG] Response user data: {response_data['user']}")
 
             return Response(response_data, status=status.HTTP_200_OK)
 
-        # ❌ 로그인 실패
-        print("❌ Login errors:", serializer.errors)
+        # [ERROR] 로그인 실패
+        print("[ERROR] Login errors:", serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # logout view
@@ -181,7 +181,7 @@ class DbrPatientLogoutView(APIView):
                 )
 
             token = RefreshToken(refresh_token)
-            # token.blacklist()  # ✅ 블랙리스트에 등록 (재사용 불가)
+            # token.blacklist()  # [OK] 블랙리스트에 등록 (재사용 불가)
 
             return Response(
                 {"message": "로그아웃되었습니다."},
@@ -195,7 +195,7 @@ class DbrPatientLogoutView(APIView):
     
 # 🔹 현재 로그인된 사용자 조회 (auth/user)
 class DbrPatientUserView(APIView):
-    authentication_classes = [PatientJWTAuthentication]  # ✅ 커스텀 인증
+    authentication_classes = [PatientJWTAuthentication]  # [OK] 커스텀 인증
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
@@ -277,7 +277,7 @@ class DbrPatientTokenRefreshView(APIView):
             )
 
         try:
-            # ✅ 새 access token 발급
+            # [OK] 새 access token 발급
             token = RefreshToken(refresh_token)
             new_access = str(token.access_token)
 
@@ -332,11 +332,16 @@ class PatientDetailView(generics.RetrieveUpdateDestroyAPIView):
 # ==================== 혈액검사 관련 Views ====================
 class BloodResultListView(generics.ListCreateAPIView):
     """혈액검사 결과 목록 조회 및 생성"""
-    queryset = DbrBloodResults.objects.all().select_related('patient_id')
     serializer_class = BloodResultSerializer
     authentication_classes = [PatientJWTAuthentication]
     permission_classes = [IsAuthenticated]
-    
+
+    def get_queryset(self):
+        """로그인한 환자의 혈액검사 결과만 반환"""
+        return DbrBloodResults.objects.filter(
+            patient_id=self.request.user.patient_id
+        ).select_related('patient_id').order_by('-taken_at')
+
     @swagger_auto_schema(tags=["Blood Results"], operation_summary="혈액검사 결과 목록 조회")
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
@@ -371,28 +376,47 @@ class BloodResultDetailView(generics.RetrieveUpdateDestroyAPIView):
         return super().delete(request, *args, **kwargs)
 
 
-class PatientBloodResultsView(generics.ListAPIView):
-    """특정 환자의 혈액검사 결과 목록 조회"""
-    serializer_class = BloodResultSerializer
+class LatestBloodResultView(APIView):
+    """최신 혈액검사 결과 조회"""
     authentication_classes = [PatientJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(tags=["Blood Results"], operation_summary="특정 환자의 혈액검사 결과 목록 조회")
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+    @swagger_auto_schema(
+        tags=["Blood Results"],
+        operation_summary="최신 혈액검사 결과 조회",
+        responses={
+            200: BloodResultSerializer(),
+            404: "혈액검사 결과가 없습니다"
+        }
+    )
+    def get(self, request):
+        user_id = request.user.user_id
+        latest_result = DbrBloodResults.objects.filter(
+            patient_id__user_id=user_id
+        ).select_related('patient_id').order_by('-taken_at').first()
 
-    def get_queryset(self):
-        patient_id = self.kwargs['patient_id']
-        return DbrBloodResults.objects.filter(patient_id=patient_id).order_by('-taken_at')
+        if not latest_result:
+            return Response(
+                {"detail": "혈액검사 결과가 없습니다."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = BloodResultSerializer(latest_result)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # ==================== 일정 관련 Views ====================
 class AppointmentListView(generics.ListCreateAPIView):
     """일정 목록 조회 및 생성"""
-    queryset = DbrAppointments.objects.all().select_related('patient_id')
     serializer_class = AppointmentSerializer
     authentication_classes = [PatientJWTAuthentication]
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """로그인한 환자의 일정만 반환"""
+        return DbrAppointments.objects.filter(
+            patient_id=self.request.user.patient_id
+        ).select_related('patient_id').order_by('appointment_date', 'appointment_time')
 
     @swagger_auto_schema(tags=["Appointments"], operation_summary="일정 목록 조회")
     def get(self, request, *args, **kwargs):
@@ -417,11 +441,11 @@ class AppointmentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     @swagger_auto_schema(tags=["Appointments"], operation_summary="일정 수정")
     def put(self, request, *args, **kwargs):
-        print(f"🔍 PUT Request Data: {request.data}")
+        print(f"[DEBUG] PUT Request Data: {request.data}")
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=False)
         if not serializer.is_valid():
-            print(f"❌ Serializer Errors: {serializer.errors}")
+            print(f"[ERROR] Serializer Errors: {serializer.errors}")
         return super().put(request, *args, **kwargs)
 
     @swagger_auto_schema(tags=["Appointments"], operation_summary="일정 부분 수정")
@@ -431,21 +455,6 @@ class AppointmentDetailView(generics.RetrieveUpdateDestroyAPIView):
     @swagger_auto_schema(tags=["Appointments"], operation_summary="일정 삭제")
     def delete(self, request, *args, **kwargs):
         return super().delete(request, *args, **kwargs)
-
-
-class PatientAppointmentsView(generics.ListAPIView):
-    """특정 환자의 일정 목록 조회"""
-    serializer_class = AppointmentSerializer
-    authentication_classes = [PatientJWTAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    @swagger_auto_schema(tags=["Appointments"], operation_summary="특정 환자의 일정 목록 조회")
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
-
-    def get_queryset(self):
-        patient_id = self.kwargs['patient_id']
-        return DbrAppointments.objects.filter(patient_id=patient_id).order_by('appointment_date', 'appointment_time')
 
 
 # ==================== 혈액검사 기준 관련 Views ====================
@@ -549,7 +558,7 @@ class DashboardGraphsView(APIView):
             if cached_graphs:
                 return Response(cached_graphs, status=status.HTTP_200_OK)
 
-            # 🔥 핵심 지표 우선순위 (중요한 순서대로)
+            # [FIRE] 핵심 지표 우선순위 (중요한 순서대로)
             primary_indicators = [
                 'afp',         # 1. 종양 표지자
                 'ast',         # 2. 간세포 손상
@@ -571,7 +580,7 @@ class DashboardGraphsView(APIView):
             
             gender = patient.sex
 
-            # 🔥 핵심 지표 그래프 생성
+            # [FIRE] 핵심 지표 그래프 생성
             for indicator in primary_indicators:
                 value = getattr(latest_result, indicator, None)
                 
@@ -582,7 +591,7 @@ class DashboardGraphsView(APIView):
                         img_base64 = generate_risk_bar(indicator, float(value), gender)
                         graphs['primary'][indicator] = f"data:image/png;base64,{img_base64}"
                     except Exception as e:
-                        print(f"❌ Error generating {indicator} graph: {e}")
+                        print(f"[ERROR] Error generating {indicator} graph: {e}")
                         graphs['primary'][indicator] = None
 
             # 📊 부가 지표 그래프 생성
@@ -596,7 +605,7 @@ class DashboardGraphsView(APIView):
                         img_base64 = generate_risk_bar(indicator, float(value), gender)
                         graphs['secondary'][indicator] = f"data:image/png;base64,{img_base64}"
                     except Exception as e:
-                        print(f"❌ Error generating {indicator} graph: {e}")
+                        print(f"[ERROR] Error generating {indicator} graph: {e}")
                         graphs['secondary'][indicator] = None
 
             # 📊 수치 요약

@@ -3,9 +3,9 @@ from .views import (
     # 환자
     PatientListView, PatientDetailView,
     # 혈액검사
-    BloodResultListView, BloodResultDetailView, PatientBloodResultsView,
+    BloodResultListView, BloodResultDetailView, LatestBloodResultView,
     # 일정
-    AppointmentListView, AppointmentDetailView, PatientAppointmentsView,
+    AppointmentListView, AppointmentDetailView,
     # 혈액검사 기준
     BloodTestReferenceListView, BloodTestReferenceDetailView,
     # Auth
@@ -41,13 +41,12 @@ urlpatterns = [
 
     # ==================== 혈액검사 결과 ====================
     path('blood-results/', BloodResultListView.as_view(), name='blood-result-list'),
+    path('blood-results/latest/', LatestBloodResultView.as_view(), name='blood-result-latest'),
     path('blood-results/<int:blood_result_id>/', BloodResultDetailView.as_view(), name='blood-result-detail'),
-    path('patients/<uuid:patient_id>/blood-results/', PatientBloodResultsView.as_view(), name='patient-blood-results'),
 
     # ==================== 일정 ====================
     path('appointments/', AppointmentListView.as_view(), name='appointment-list'),
     path('appointments/<int:appointment_id>/', AppointmentDetailView.as_view(), name='appointment-detail'),
-    path('patients/<uuid:patient_id>/appointments/', PatientAppointmentsView.as_view(), name='patient-appointments'),
 
     # ==================== 혈액검사 기준 ====================
     path('blood-test-references/', BloodTestReferenceListView.as_view(), name='blood-test-reference-list'),
