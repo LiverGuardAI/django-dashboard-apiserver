@@ -178,6 +178,20 @@ class FavoriteHospitalListCreateView(generics.ListCreateAPIView):
         except IntegrityError:
             raise ValidationError({'detail': '이미 즐겨찾기에 등록되어 있습니다.'})
 
+    def _get_patient(self):
+        user = self.request.user
+        if isinstance(user, DbrPatients):
+            return user
+
+        username = getattr(user, 'username', None)
+        if not username:
+            raise ValidationError({'detail': '환자 정보를 찾을 수 없습니다.'})
+
+        try:
+            return DbrPatients.objects.get(user_id=username)
+        except DbrPatients.DoesNotExist:
+            raise ValidationError({'detail': '환자 정보를 찾을 수 없습니다.'})
+
 
 class FavoriteHospitalDetailView(generics.DestroyAPIView):
     serializer_class = FavoriteHospitalSerializer
@@ -189,8 +203,16 @@ class FavoriteHospitalDetailView(generics.DestroyAPIView):
         return FavoriteHospital.objects.filter(patient=patient)
 
     def _get_patient(self):
+        user = self.request.user
+        if isinstance(user, DbrPatients):
+            return user
+
+        username = getattr(user, 'username', None)
+        if not username:
+            raise ValidationError({'detail': '환자 정보를 찾을 수 없습니다.'})
+
         try:
-            return DbrPatients.objects.get(user_id=self.request.user.username)
+            return DbrPatients.objects.get(user_id=username)
         except DbrPatients.DoesNotExist:
             raise ValidationError({'detail': '환자 정보를 찾을 수 없습니다.'})
 
