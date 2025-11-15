@@ -1,23 +1,31 @@
+# liverguard/views.py
+
 from django.shortcuts import render, get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import generics
+# ✍️ (1/3) 'viewsets' 추가
+from rest_framework import generics, viewsets, status, permissions,filters
 from .models import (
     DbrPatients, DbrBloodResults, DbrAppointments, DbrBloodTestReferences,
     Medication, MedicationLog,
+    # ✍️ (2/3) DUR 모델 2개 추가
+    DurDrugInfo, DurDdiDrugbank,DurDrugMapping 
 )
 from .serializers import (
     PatientSerializer, BloodResultSerializer, AppointmentSerializer,
     BloodTestReferenceSerializer,
     DbrPatientRegisterSerializer, DbrPatientLoginSerializer,
     MedicationSerializer, MedicationLogSerializer,
+    # ✍️ (3/3) DDI 검사용 Serializer 추가
+    MedicationCreateUpdateSerializer,
+    DurDrugInfoSearchSerializer
 )
 from dashboard.authentication import PatientJWTAuthentication
-from rest_framework import status
+# from rest_framework import status # 👈 상단에서 이미 import 됨
 from django.contrib.auth import authenticate, login
 from rest_framework.decorators import api_view
 from django.contrib.auth.hashers import check_password
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated # 👈 IsAuthenticated 이미 있음
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken, TokenError
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -143,7 +151,7 @@ class DbrPatientLogoutView(APIView):
         operation_summary="로그아웃",
         tags=["Auth"],
         request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
+            type=openapi.TYPE_OBJECT, # 👈 (수정) type 추가
             required=["refresh"],
             properties={
                 "refresh": openapi.Schema(type=openapi.TYPE_STRING, description="Refresh Token")
@@ -278,12 +286,9 @@ class DbrPatientTokenRefreshView(APIView):
             )
         try:
             # 새 access token 발급
-
             token = RefreshToken(refresh_token)
             new_access = str(token.access_token)
-
             return Response({"access": new_access}, status=status.HTTP_200_OK)
-
         except TokenError:
             return Response(
                 {"error": "유효하지 않은 refresh token입니다."},
@@ -503,7 +508,6 @@ class BloodTestReferenceDetailView(generics.RetrieveUpdateDestroyAPIView):
 # ==================== Dashboard Graph Views ====================
 from .dashboard_bar import generate_risk_bar
 from django.http import JsonResponse
-
 from django.core.cache import cache
 import hashlib
 
@@ -1158,47 +1162,103 @@ class DashboardTimeSeriesView(APIView):
         return warnings
 
 # ==================== 약물 관련 Views ====================
-class MedicationListView(generics.ListCreateAPIView):
-    """약물 목록 조회 및 생성"""
-    queryset = Medication.objects.all().select_related('patient_id')
-    serializer_class = MedicationSerializer
-    authentication_classes = [PatientJWTAuthentication]
-    permission_classes = [IsAuthenticated]
+# ✍️ (제거) 기존 MedicationListView, MedicationDetailView 삭제
 
-    @swagger_auto_schema(tags=["Medications"], operation_summary="약물 목록 조회")
+# ==========================================================
+# 👈 [추가] 2. 약물 검색 API (Autocomplete용)
+# ==========================================================
+class DrugSearchAPIView(generics.ListAPIView):
+    # ==========================================================
+    # 👈 [수정] 검색할 테이블(queryset)을 DurDrugMapping으로 변경
+    # ==========================================================
+    # queryset = DurDrugMapping.objects.all() 
+    serializer_class = DurDrugInfoSearchSerializer 
+    
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['KoreanName', 'EnglishName'] # 👈 여기는 OK
+    
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [PatientJWTAuthentication]
+    
+    # ==========================================================
+    # 👈 [추가] get_queryset 메서드 (중복 제거)
+    # ==========================================================
+    def get_queryset(self):
+        """
+        검색 시 중복된 결과(row)를 제거합니다.
+        """
+        return DurDrugMapping.objects.all().distinct()
+
+    @swagger_auto_schema(tags=["Medications"], operation_summary="[DDI검사] 약물 마스터 검색 (Autocomplete)")
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
-    @swagger_auto_schema(tags=["Medications"], operation_summary="약물 등록")
-    def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
 
-
-class MedicationDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """약물 상세 조회, 수정, 삭제"""
+# ✍️ (추가) MedicationViewSet (DDI 검사 기능 포함)
+class MedicationViewSet(viewsets.ModelViewSet):
+    """
+    약물(Medication) CRUD API ViewSet
+    - 로그인한 사용자의 약물만 조회, 생성, 수정, 삭제합니다.
+    - 생성/수정 시 MedicationCreateUpdateSerializer를 사용하여 DDI 검사를 수행합니다.
+    """
     queryset = Medication.objects.all().select_related('patient_id')
-    serializer_class = MedicationSerializer
-    lookup_field = 'medication_id'
-    authentication_classes = [PatientJWTAuthentication]
     permission_classes = [IsAuthenticated]
+    authentication_classes = [PatientJWTAuthentication] # 👈 인증 클래스 명시
 
-    @swagger_auto_schema(tags=["Medications"], operation_summary="약물 상세 조회")
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+    @swagger_auto_schema(tags=["Medications"], operation_summary="[DDI검사] 약물 목록 조회")
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
-    @swagger_auto_schema(tags=["Medications"], operation_summary="약물 정보 수정")
-    def put(self, request, *args, **kwargs):
-        return super().put(request, *args, **kwargs)
+    @swagger_auto_schema(tags=["Medications"], operation_summary="[DDI검사] 약물 등록 (DDI 검사 수행)")
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
 
-    @swagger_auto_schema(tags=["Medications"], operation_summary="약물 정보 부분 수정")
-    def patch(self, request, *args, **kwargs):
-        return super().patch(request, *args, **kwargs)
+    @swagger_auto_schema(tags=["Medications"], operation_summary="[DDI검사] 약물 상세 조회")
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
 
-    @swagger_auto_schema(tags=["Medications"], operation_summary="약물 삭제")
-    def delete(self, request, *args, **kwargs):
-        return super().delete(request, *args, **kwargs)
+    @swagger_auto_schema(tags=["Medications"], operation_summary="[DDI검사] 약물 정보 수정 (DDI 검사 수행)")
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=["Medications"], operation_summary="[DDI검사] 약물 정보 부분 수정 (DDI 검사 수행)")
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(tags=["Medications"], operation_summary="[DDI검사] 약물 삭제")
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
 
 
+    def get_serializer_class(self):
+        """
+        요청 종류(action)에 따라 다른 Serializer를 반환합니다.
+        """
+        if self.action in ['create', 'update', 'partial_update']:
+            return MedicationCreateUpdateSerializer # 👈 DDI 검사 Serializer
+        return MedicationSerializer # 👈 단순 조회 Serializer
+
+    def get_queryset(self):
+        """
+        로그인한 사용자(request.user) 본인의 약물 기록만 조회합니다.
+        """
+        # ✍️ (수정) patient_id가 request.user와 일치하는 것만 필터링
+        return self.queryset.filter(patient_id=self.request.user)
+
+    def perform_create(self, serializer):
+        """
+        새 약물 생성 시, patient_id를 로그인한 사용자로 강제 설정합니다.
+        """
+        serializer.save(patient_id=self.request.user)
+    
+    def perform_update(self, serializer):
+        """
+        약물 수정 시, patient_id를 로그인한 사용자로 강제 설정합니다.
+        """
+        serializer.save(patient_id=self.request.user)
+
+
+# ( ... 기존 PatientMedicationsView 유지 ... )
 class PatientMedicationsView(generics.ListAPIView):
     """특정 환자의 약물 목록 조회"""
     serializer_class = MedicationSerializer
@@ -1217,7 +1277,7 @@ class PatientMedicationsView(generics.ListAPIView):
 # ==================== 복용 기록 관련 Views ====================
 class MedicationLogListView(generics.ListCreateAPIView):
     """복용 기록 목록 조회 및 생성"""
-    queryset = MedicationLog.objects.all().select_related('medication__patient')
+    queryset = MedicationLog.objects.all().select_related('medication__patient_id') # ✍️ patient -> patient_id
     serializer_class = MedicationLogSerializer
     authentication_classes = [PatientJWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -1233,7 +1293,7 @@ class MedicationLogListView(generics.ListCreateAPIView):
 
 class MedicationLogDetailView(generics.RetrieveUpdateDestroyAPIView):
     """복용 기록 상세 조회, 수정, 삭제"""
-    queryset = MedicationLog.objects.all().select_related('medication__patient')
+    queryset = MedicationLog.objects.all().select_related('medication__patient_id') # ✍️ patient -> patient_id
     serializer_class = MedicationLogSerializer
     lookup_field = 'log_id'
     authentication_classes = [PatientJWTAuthentication]
@@ -1254,6 +1314,8 @@ class MedicationLogDetailView(generics.RetrieveUpdateDestroyAPIView):
     @swagger_auto_schema(tags=["Medication Logs"], operation_summary="복용 기록 삭제")
     def delete(self, request, *args, **kwargs):
         return super().delete(request, *args, **kwargs)
+    
+
 
 
 # # ==================== 의료기관 관련 Views ====================

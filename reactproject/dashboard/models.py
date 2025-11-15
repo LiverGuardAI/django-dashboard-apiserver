@@ -247,7 +247,54 @@ class MedicationLog(models.Model):
     def __str__(self):
         return f"{self.medication.medication_name} - {self.taken_date}"
 
+# (추가) 6. DUR Drug Info (기존 DB 읽기용)
+# (DDI 검사 시 약물 이름 <-> DrugBank ID 변환용)
+# ----------------------------------------
+class DurDrugInfo(models.Model):
+    # 'drugbank_id'가 "DB01115" 같은 문자열 ID라고 가정
+    drugbank_id = models.CharField(
+        primary_key=True, 
+        max_length=100, 
+        db_column="drugbank_id"
+    )
+    # 약물 영문명 (검색용)
+    name = models.CharField(max_length=255, db_column="name")
 
+    class Meta:
+        managed = False  # Django가 이 테이블을 관리하지 않음 (이미 존재함)
+        db_table = "dur_drug_info" # 👈 실제 테이블명
+        verbose_name = "DUR 약물 정보"
+
+# ==========================================================
+# 👈 [추가] 7. DurDrugMapping 모델 (검색용)
+# (이전에 보여주신 dur_drug_mapping 테이블 스크린샷 기준)
+# ==========================================================
+class DurDrugMapping(models.Model):
+    id = models.AutoField(primary_key=True)
+    KoreanName = models.CharField(max_length=255, null=True, blank=True)
+    EnglishName = models.CharField(max_length=255, null=True, blank=True)
+    DrugBank_ID = models.CharField(max_length=50, null=True, blank=True)
+    HIRA_Code = models.CharField(max_length=100, null=True, blank=True)
+    ATC_Code = models.CharField(max_length=50, null=True, blank=True)
+
+    class Meta:
+        managed = False # Django가 관리하지 않음 (읽기 전용)
+        db_table = "dur_drug_mapping" # 👈 실제 테이블명
+        verbose_name = "DUR 약물 매핑"
+# ----------------------------------------
+# (추가) 7. DUR DDI DrugBank (기존 DB 읽기용)
+# (병용 금기 규칙 테이블)
+# ----------------------------------------
+class DurDdiDrugbank(models.Model):
+    id = models.AutoField(primary_key=True)
+    drug1_id = models.CharField(max_length=100, db_column="drug1_id")
+    drug2_id = models.CharField(max_length=100, db_column="drug2_id")
+    interaction_type = models.IntegerField(db_column="interaction_type")
+    
+    class Meta:
+        managed = False
+        db_table = "dur_ddi_drugbank"
+        verbose_name = "DUR DrugBank 상호작용"
 # # ----------------------------------------
 # # 6. MedicalFacility (의료 시설 - HealthcareMap 연동)
 # # ----------------------------------------
